@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Points Night{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Admin Panel</h1>
+        
+        <!-- Admin Navigation -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ url_for('admin') }}" class="btn btn-outline-primary">User Management</a>
+                    <a href="{{ url_for('manage_offline_players') }}" class="btn btn-outline-primary">Offline Players</a>
+                    <a href="{{ url_for('manage_points') }}" class="btn btn-outline-primary">Manage Points</a>
+                    <a href="{{ url_for('backup_database') }}" class="btn btn-outline-success">
+                        <i class="fas fa-database me-1"></i> Backup Database
+                    </a>
+                    <a href="{{ url_for('backup_list') }}" class="btn btn-outline-success">
+                        <i class="fas fa-history me-1"></i> Backup Management
+                    </a>
+                    <a href="{{ url_for('admin_make_pick') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-hockey-puck me-1"></i> Make Picks
+                    </a>
+                    <a href="{{ url_for('initialize_players') }}" class="btn btn-outline-danger">
+                        <i class="fas fa-user-plus me-1"></i> Initialize Players
+                    </a>
+                    <a href="{{ url_for('database_debug') }}" class="btn btn-outline-warning">
+                        <i class="fas fa-tools me-1"></i> Database Debug
+                    </a>
+                    <a href="{{ url_for('storage_details') }}" class="btn btn-outline-info">
+                        <i class="fas fa-hdd me-1"></i> Storage Details
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Info Card -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Database Information</h5>
+                <p class="card-text">
+                    <strong>Database Location:</strong> {{ config['SQLALCHEMY_DATABASE_URI'] }}<br>
+                    <strong>Total Users:</strong> {{ users|length }}
+                </p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Use the Backup Database button to download a copy of your database. This contains all user accounts, picks, and scores.
+                    We recommend backing up regularly to prevent data loss.
+                </div>
+                <form method="POST" action="{{ url_for('admin_update_points') }}" class="mt-3">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-sync me-1"></i> Update Points from Recent Games
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Draft Order Management Card -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Draft Order Management</h5>
+                <p class="card-text">
+                    Manage the draft picking order for the next game.
+                </p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <form method="POST" action="{{ url_for('admin_rotate_draft_order') }}">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sync me-1"></i> Manually Rotate Draft Order
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin_check_opponent_change') }}">
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-exchange-alt me-1"></i> Check for Opponent Change
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('toggle_playoff_mode') }}">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-hockey-puck me-1"></i>
+                            {% if settings.get('playoff_mode', 'false').lower() == 'true' %}
+                                Disable Playoff Mode
+                            {% else %}
+                                Enable Playoff Mode
+                            {% endif %}
+                        </button>
+                    </form>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    The system automatically checks for opponent changes every hour and rotates the draft order when a new game starts.
+                    {% if settings.get('playoff_mode', 'false').lower() == 'true' %}
+                    <br><strong>Playoff Mode is ENABLED:</strong> The system will rotate the draft order based on game date changes, not opponent changes.
+                    {% else %}
+                    <br><strong>Regular Season Mode:</strong> The system rotates the draft order when the opponent team changes.
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Points and Updates Diagnostics -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Points and Updates Diagnostics</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('points_diagnostic') }}" class="btn btn-info">Detailed Points System Diagnostic</a>
+                    <a href="{{ url_for('test_point_update') }}" class="btn btn-secondary">Test Point Update System</a>
+                    <a href="{{ url_for('admin_recent_games') }}" class="btn btn-secondary">Check Recent NHL Games</a>
+                    <form action="{{ url_for('admin_trigger_update') }}" method="post">
+                        <button type="submit" class="btn btn-warning w-100 mb-2">Force Update Points</button>
+                    </form>
+                    <a href="{{ url_for('admin_trigger_rotation') }}" class="btn btn-warning">Force Draft Rotation</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Management Table -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">User Management</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Admin</th>
+                                <th>Created</th>
+                                <th>Picks</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>{% if user.is_admin %}Yes{% else %}No{% endif %}</td>
+                                <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    {% for pick in user.picks %}
+                                        {{ pick.player_name }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('delete_user') }}" 
+                                          onsubmit="return confirm('Are you sure you want to delete {{ user.username }}? This action cannot be undone.')">
+                                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                                        <input type="hidden" name="user_type" value="online">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="fas fa-trash-alt me-1"></i> Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
